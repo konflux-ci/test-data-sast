@@ -1,0 +1,409 @@
+apiVersion: v1
+data:
+  alerting.yaml: |
+    apiVersion: 1
+    groups:
+    - orgId: 1
+      name: Suspicious policy change
+      folder: Policy
+      interval: 5m
+      rules:
+        - uid: globalhub_suspicious_policy_change
+          title: Suspicious policy change
+          condition: B
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 3600
+                to: 0
+              datasourceUid: P244538DD76A4C61D
+              model:
+                editorMode: code
+                format: table
+                hide: false
+                intervalMs: 1000
+                maxDataPoints: 43200
+                rawQuery: true
+                rawSql: "WITH rootpolicy  AS ( \n  SELECT \n    policy_id,\n    message,\n    reverse(SUBSTRING(reverse(message), 0, position('/' in reverse(message)))) as \"cluster\"\n  FROM \n    event.local_root_policies\n  WHERE $__timeFilter(created_at) \n  AND  reason = 'PolicyPropagation'\n  AND NOT message LIKE '%was disabled'\n),\npolicy_cluster_count AS(\n  SELECT \n    COUNT(*) as propagation_events_count,\n    policy_id,cluster\n  FROM \n    rootpolicy\n  WHERE cluster != ''\n  GROUP BY policy_id,cluster\n)\nSELECT \n  pcc.propagation_events_count,\n  p.policy_name,\n  p.payload -> 'metadata' ->> 'namespace' as namespace,\n  p.leaf_hub_name\nFROM \n  policy_cluster_count pcc\nINNER JOIN\n  local_spec.policies p ON pcc.policy_id = p.policy_id\n\n\n"
+                refId: A
+                sql:
+                    columns:
+                        - parameters: []
+                          type: function
+                    groupBy:
+                        - property:
+                            type: string
+                          type: groupBy
+                    limit: 50
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 5
+                            - 0
+                        type: gt
+                      operator:
+                        type: when
+                      query:
+                        params:
+                            - A
+                      reducer:
+                        params: []
+                        type: max
+                      type: query
+                datasource:
+                    name: Expression
+                    type: __expr__
+                    uid: __expr__
+                expression: ""
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: B
+                type: classic_conditions
+          noDataState: OK
+          execErrState: Error
+          for: 0s
+          annotations:
+            description: |-
+                We are getting many propagation/disabled events for a policy, it may caused by suspicious changes to policy.
+     
+                Details: {{ `{{range $k, $v := $values }}` }}
+                      The following policy updated/disabled {{ `{{ $v }}` }} times in last 1 hour:
+                        > {{ `{{ $v.Labels }}` }}
+                      {{ `{{ end }}` }}
+            summary: Suspicious policy change
+          isPaused: false
+    - orgId: 1
+      name: Suspicious Cluster Compliance Status Change
+      folder: Policy
+      interval: 5m
+      rules:
+        - uid: globalhub_cluster_change_frequence
+          title: Cluster compliance status change frequence
+          condition: B
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 3600
+                to: 0
+              datasourceUid: P244538DD76A4C61D
+              model:
+                editorMode: code
+                format: table
+                hide: false
+                intervalMs: 1000
+                maxDataPoints: 43200
+                rawQuery: true
+                rawSql: "WITH all_compliance_date AS(\n  SELECT \n    policy_id,\n    cluster_id,\n    created_at,\n    compliance,\n    LAG(compliance,1,compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC) as prev_compliance\n  FROM\n    event.local_policies\n  WHERE $__timeFilter(created_at) \n),\npolicy_cluster_count AS(\n  SELECT \n      policy_id,\n      cluster_id,\n      count(*) as changed_count\n  FROM all_compliance_date\n  WHERE compliance = 'non_compliant' AND prev_compliance = 'compliant'\n  GROUP BY policy_id,cluster_id\n)\nSELECT\n  pcc.changed_count,\n  mc.cluster_name,\n  p.policy_name,\n  p.payload -> 'metadata' ->> 'namespace' as namespace,\n  p.leaf_hub_name\nFROM \n  policy_cluster_count pcc\nINNER JOIN\n  local_spec.policies p ON pcc.policy_id = p.policy_id \nINNER JOIN\n  status.managed_clusters mc ON pcc.cluster_id = mc.cluster_id\n"
+                refId: A
+                sql:
+                    columns:
+                        - parameters: []
+                          type: function
+                    groupBy:
+                        - property:
+                            type: string
+                          type: groupBy
+                    limit: 50
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 3
+                            - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - A
+                      reducer:
+                        params: []
+                        type: max
+                      type: query
+                datasource:
+                    name: Expression
+                    type: __expr__
+                    uid: __expr__
+                expression: ""
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: B
+                type: classic_conditions
+          noDataState: OK
+          execErrState: Error
+          for: 0s
+          annotations:
+            description: |-
+                We are getting the cluster compliance status changes frequently.
+
+                Details: {{ `{{ range $k, $v := $values }}` }}
+                      The following clusters going in and out of compliance {{ `{{ $v }}` }} times in last 1 hour:
+                        > {{ `{{ $v.Labels }}` }}
+                      {{ `{{ end }}` }}
+            summary: Cluster is going in and out of compliance frequently
+          isPaused: false
+        - uid: globalhub_high_number_of_policy_events
+          title: High number of policy events in a cluster
+          condition: B
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 300
+                to: 0
+              datasourceUid: P244538DD76A4C61D
+              model:
+                editorMode: code
+                format: table
+                hide: false
+                intervalMs: 1000
+                maxDataPoints: 43200
+                rawQuery: true
+                rawSql: "WITH policy_cluster_count AS(\n  SELECT \n    count(*) as event_count,\n    policy_id,\n    cluster_id\n  FROM event.local_policies\n  WHERE \n    $__timeFilter(created_at) \n  GROUP BY policy_id,cluster_id\n)\nSELECT \n  pcc.event_count,\n  mc.cluster_name,\n  p.policy_name,\n  p.payload -> 'metadata' ->> 'namespace' as namespace,\n  mc.leaf_hub_name\nFROM \n  policy_cluster_count pcc\nINNER JOIN\n  local_spec.policies p ON pcc.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON pcc.cluster_id = mc.cluster_id\n\n\n\n"
+                refId: A
+                sql:
+                    columns:
+                        - parameters: []
+                          type: function
+                    groupBy:
+                        - property:
+                            type: string
+                          type: groupBy
+                    limit: 50
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 20
+                            - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - A
+                      reducer:
+                        params: []
+                        type: max
+                      type: query
+                datasource:
+                    name: Expression
+                    type: __expr__
+                    uid: __expr__
+                expression: ""
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: B
+                type: classic_conditions
+          noDataState: OK
+          execErrState: Error
+          for: 0s
+          annotations:
+            description: |-
+                We are getting too many policy events in a cluster.
+
+                Details: {{ `{{ range $k, $v := $values }}` }}
+                      There are {{ `{{ $v }}` }} policy events in last 5 minutes for the following policy and cluster:
+                        > {{ `{{ $v.Labels }}` }}
+                      {{ `{{ end }}` }}
+            summary: There are too many policy events in a cluster
+          isPaused: false
+    - orgId: 1
+      name: Cron Job Failed
+      folder: Policy
+      interval: 8h
+      rules:
+        - uid: globalhub_data_retention_job
+          title: Data Retention Job Failed
+          condition: B
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 604800
+                to: 0
+              datasourceUid: P244538DD76A4C61D
+              model:
+                editorMode: code
+                format: table
+                hide: false
+                intervalMs: 1000
+                maxDataPoints: 43200
+                rawQuery: true
+                rawSql: "SELECT \ntable_name,\n1 AS value,\nerror\nFROM event.data_retention_job_log\nWHERE error != 'none' and $__timeFilter(end_at)"
+                refId: A
+                sql:
+                    columns:
+                        - parameters: []
+                          type: function
+                    groupBy:
+                        - property:
+                            type: string
+                          type: groupBy
+                    limit: 50
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0
+                            - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - A
+                      reducer:
+                        params: []
+                        type: max
+                      type: query
+                datasource:
+                    name: Expression
+                    type: __expr__
+                    uid: __expr__
+                expression: ""
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: B
+                type: classic_conditions
+          noDataState: OK
+          execErrState: Error
+          for: 0s
+          annotations:
+            description: Data retention job failed, it may cause the stale data not cleaned up.
+            summary: Data retention job failed
+          isPaused: false
+        - uid: globalhub_local_compliance_job
+          title: Local Compliance Job failed
+          condition: B
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 86400
+                to: 0
+              datasourceUid: P244538DD76A4C61D
+              model:
+                editorMode: code
+                format: table
+                hide: false
+                intervalMs: 1000
+                maxDataPoints: 43200
+                rawQuery: true
+                rawSql: "SELECT \nname,\n1 AS value,\nerror\nFROM history.local_compliance_job_log\nWHERE error != 'none' and $__timeFilter(end_at)"
+                refId: A
+                sql:
+                    columns:
+                        - parameters: []
+                          type: function
+                    groupBy:
+                        - property:
+                            type: string
+                          type: groupBy
+                    limit: 50
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0
+                            - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - A
+                      reducer:
+                        params: []
+                        type: max
+                      type: query
+                datasource:
+                    name: Expression
+                    type: __expr__
+                    uid: __expr__
+                expression: ""
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: B
+                type: classic_conditions
+          noDataState: OK
+          execErrState: Error
+          for: 0s
+          annotations:
+            description: Local compliance job failed, it may cause the compliance data lost.
+            summary: Local compliance job failed
+          isPaused: false
+    templates:
+      - orgID: 1
+        name: globalhub_policy
+        template: |
+          {{ `{{ define "globalhub.policy.title" }}` }}
+          {{ `{{ if .Alerts.Firing -}}` }}
+          {{ `{{ range .Alerts.Firing }}` }}
+          [FIRING] {{ `{{ .Labels.grafana_folder }}` }} > {{ `{{ .Labels.alertname }}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ if .Alerts.Resolved -}}` }}
+          {{ `{{ range .Alerts.Resolved }}` }}
+          [RESOLVED] {{ `{{ .Labels.grafana_folder }}` }} > {{ `{{ .Labels.alertname }}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ end }}` }}
+
+          {{ `{{ define "print.message" }}` }}
+          {{ `{{ if .Annotations.Error }}` }}
+          Error:
+                {{ `{{ .Annotations.Error }}` }}
+          {{ `{{- end }}` }}
+
+          Summary:
+                {{ `{{ .Annotations.summary }}` }}
+
+          Description:
+                {{ `{{ .Annotations.description }}` }}
+          {{ `{{ if gt (len .GeneratorURL) 0 -}}` }}
+          Source: 
+                {{ `{{ .GeneratorURL }}` }}
+          {{ `{{ end }}` }}
+          {{ `{{ end -}}` }}
+
+          {{ `{{ define "globalhub.policy.message" -}}` }}
+          {{ `{{ if .Alerts.Firing -}}` }}
+          {{ `{{ range .Alerts.Firing }}` }}
+          {{ `{{ template "print.message" . }}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ end }}` }}
+          {{ `{{ if .Alerts.Resolved -}}` }}
+          {{ `{{ range .Alerts.Resolved }}` }}
+          {{ `{{ template "print.message" . }}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ end }}` }}
+          {{ `{{- end }}` }}
+
+kind: ConfigMap
+metadata:
+  name: multicluster-global-hub-default-alerting
+  namespace: {{.Namespace}}

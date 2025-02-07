@@ -1,0 +1,1046 @@
+apiVersion: v1
+data:
+  acm-global-whats-changed-clusters.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "datasource",
+              "uid": "grafana"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "target": {
+              "limit": 100,
+              "matchAny": false,
+              "tags": [],
+              "type": "dashboard"
+            },
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": 6,
+      "links": [
+        {
+          "asDropdown": false,
+          "icon": "dashboard",
+          "includeVars": true,
+          "keepTime": true,
+          "tags": [],
+          "targetBlank": true,
+          "title": "Global Hub - Offending Clusters",
+          "tooltip": "",
+          "type": "link",
+          "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1"
+        }
+      ],
+      "liveNow": false,
+      "panels": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "fillOpacity": 70,
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineWidth": 0,
+                "spanNulls": false
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "0": {
+                      "color": "green",
+                      "index": 3,
+                      "text": "Compliant"
+                    },
+                    "1": {
+                      "color": "yellow",
+                      "index": 2,
+                      "text": "Unknown"
+                    },
+                    "2": {
+                      "color": "orange",
+                      "index": 1,
+                      "text": "Pending"
+                    },
+                    "3": {
+                      "color": "red",
+                      "index": 0,
+                      "text": "NonCompliant"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "noValue": "No data in response",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "transparent",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 1
+                  },
+                  {
+                    "color": "orange",
+                    "value": 2
+                  },
+                  {
+                    "color": "red",
+                    "value": 3
+                  }
+                ]
+              },
+              "unit": "none",
+              "unitScale": true
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 11,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 12,
+          "options": {
+            "alignValue": "center",
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "mergeValues": true,
+            "rowHeight": 0.9,
+            "showValue": "never",
+            "tooltip": {
+              "mode": "none",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "datasource": {
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "format": "time_series",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(lc.compliance_date, $__interval),\n    p.policy_name,\n    CASE WHEN lc.compliance = 'non_compliant' THEN 3\n        WHEN lc.compliance = 'pending' THEN 2\n         WHEN lc.compliance = 'unknown' THEN 1\n         WHEN lc.compliance = 'compliant' THEN 0\n    END AS \"compliance\"\n  FROM\n    history.local_compliance lc\n  INNER JOIN\n    local_spec.policies p ON lc.policy_id = p.policy_id\n  INNER JOIN\n    status.managed_clusters mc ON lc.cluster_id = mc.cluster_id \n  WHERE\n    $__timeFilter(lc.compliance_date)\n  AND\n    mc.cluster_name = '$cluster'\n  AND \n    lc.leaf_hub_name IN ( $all_hubs  ) \n  AND \n    mc.leaf_hub_name  IN ( $all_hubs )\n  AND\n    p.payload -> 'metadata' ->> 'namespace' ${namespace_query:raw}\n  AND\n    p.policy_name ${policy_query:raw}\n),\norderclusters as (\n  SELECT\n    policy_name,\n    ROW_NUMBER () OVER (ORDER BY SUM(compliance) DESC) as row_number\n  FROM\n    data\n  GROUP BY(policy_name)\n)\nSELECT\n  time,\n  dc.policy_name as \"metric\",\n  compliance as \"value\"\nFROM\n  orderclusters tc\nJOIN\n  data dc on dc.policy_name = tc.policy_name\nWHERE\n  tc.row_number >= $topleft AND tc.row_number <= $topright\nORDER BY (time)",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Policy State Timeline",
+          "type": "state-timeline"
+        },
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "P244538DD76A4C61D"
+          },
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 11
+          },
+          "id": 6,
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "refId": "A"
+            }
+          ],
+          "title": "Events",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true,
+                "inspect": false
+              },
+              "mappings": [],
+              "noValue": "No data in response",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "dark-yellow",
+                    "value": null
+                  }
+                ]
+              },
+              "unitScale": true
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hub"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View policy \"${__data.fields.Policy}\" on hub cluster \"${__data.fields.Hub}\"",
+                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}?perspective=acm"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Policy"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Namespace"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 12
+          },
+          "id": 15,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "SELECT\n  rp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n  p.policy_name,\n  rp.message\nFROM\n  event.local_root_policies rp\nINNER JOIN\n  local_spec.policies p ON rp.policy_id = p.policy_id \nWHERE\n  $__timeFilter(rp.created_at)\nAND\n  rp.leaf_hub_name IN ( $all_hubs  ) \nAND\n  p.leaf_hub_name IN ( $all_hubs  ) \nAND\n  rp.message LIKE '%$cluster%'\nAND\n  p.payload -> 'metadata' ->> 'namespace' ${namespace_query:raw}\nAND\n  p.policy_name ${policy_query:raw}\nORDER BY (rp.created_at) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Policy Propagation Events",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "hub": false
+                },
+                "indexByName": {
+                  "hub": 3,
+                  "message": 4,
+                  "namespace": 2,
+                  "policy_name": 1,
+                  "time": 0
+                },
+                "renameByName": {
+                  "hub": "Hub",
+                  "message": "Message",
+                  "namespace": "Namespace",
+                  "policy_name": "Policy",
+                  "time": "Time"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true,
+                "inspect": false
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "compliant": {
+                      "color": "green",
+                      "index": 0,
+                      "text": "true"
+                    },
+                    "non_compliant": {
+                      "color": "red",
+                      "index": 1,
+                      "text": "false"
+                    },
+                    "pending": {
+                      "color": "orange",
+                      "index": 2,
+                      "text": "pending"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "noValue": "No data in response",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "dark-yellow",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unitScale": true
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "compliance"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "color-background"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hub"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View policy \"${__data.fields.Policy}\" on hub cluster \"${__data.fields.Hub}\"",
+                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}/results?search=${__data.fields.Cluster}&perspective=acm"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Policy"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Namespace"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cluster"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Reason"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Compliance"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 120
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 21
+          },
+          "id": 17,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "date_id"
+              }
+            ]
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' ->> 'namespace' as namespace,\n  p.policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id \nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id \nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name IN ( $all_hubs  ) \nAND\n  lp.leaf_hub_name IN ( $all_hubs  ) \nAND\n  p.leaf_hub_name IN ( $all_hubs  ) \nAND\n  mc.cluster_name = '$cluster'\nAND\n  p.payload -> 'metadata' ->> 'namespace' ${namespace_query:raw}\nAND\n  p.policy_name ${policy_query:raw}\nORDER BY (lp.created_at,lp.compliance) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Policy Compliance Events",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {
+                  "cluster_name": 4,
+                  "compliance": 7,
+                  "hub": 3,
+                  "message": 5,
+                  "namespace": 2,
+                  "policy_name": 1,
+                  "reason": 6,
+                  "time": 0
+                },
+                "renameByName": {
+                  "cluster_name": "Cluster",
+                  "compliance": "Compliance",
+                  "hub": "Hub",
+                  "message": "Message",
+                  "namespace": "Namespace",
+                  "policy_name": "Policy",
+                  "reason": "Reason",
+                  "time": "Time"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        }
+      ],
+      "refresh": "",
+      "schemaVersion": 39,
+      "tags": [],
+      "templating": {
+        "list": [
+          {
+            "current": {
+              "selected": false,
+              "text": "Global-Hub-DataSource",
+              "value": "P244538DD76A4C61D"
+            },
+            "hide": 2,
+            "includeAll": false,
+            "label": "Datasource",
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "postgres",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": "mc1",
+              "value": "mc1"
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "${datasource}"
+            },
+            "definition": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n",
+            "description": "Managed hub cluster name",
+            "hide": 0,
+            "includeAll": false,
+            "label": "Hub",
+            "multi": false,
+            "name": "hub",
+            "options": [],
+            "query": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": "All",
+              "value": "$__all"
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "SELECT leaf_hub_name\nFROM status.leaf_hubs\nWHERE cluster_id IN (SELECT cluster_id FROM status.leaf_hubs  WHERE leaf_hub_name = '$hub'  AND cluster_id!='00000000-0000-0000-0000-000000000000')\nUNION\nSELECT '$hub' leaf_hub_name;",
+            "hide": 2,
+            "includeAll": true,
+            "label": "all_hubs",
+            "multi": true,
+            "name": "all_hubs",
+            "options": [],
+            "query": "SELECT leaf_hub_name\nFROM status.leaf_hubs\nWHERE cluster_id IN (SELECT cluster_id FROM status.leaf_hubs  WHERE leaf_hub_name = '$hub'  AND cluster_id!='00000000-0000-0000-0000-000000000000')\nUNION\nSELECT '$hub' leaf_hub_name;",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "isNone": true,
+              "selected": false,
+              "text": "None",
+              "value": ""
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "${datasource}"
+            },
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance\n  WHERE\n  $__timeFilter(compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
+            "hide": 0,
+            "includeAll": false,
+            "label": "Cluster",
+            "multi": false,
+            "name": "cluster",
+            "options": [],
+            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance\n  WHERE\n  $__timeFilter(compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": "1:5",
+              "value": "1:5"
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "SELECT\n '1:5',\nCASE WHEN $maxtop > 5 THEN '$leftmaxtop:$maxtop'\nEND ",
+            "description": "Top N Non Compliance Policies",
+            "hide": 1,
+            "includeAll": false,
+            "label": "Top",
+            "multi": false,
+            "name": "top",
+            "options": [],
+            "query": "SELECT\n '1:5',\nCASE WHEN $maxtop > 5 THEN '$leftmaxtop:$maxtop'\nEND ",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": "1",
+              "value": "1"
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "SELECT SPLIT_PART('$top', ':', 1);",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "topleft",
+            "options": [],
+            "query": "SELECT SPLIT_PART('$top', ':', 1);",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": "5",
+              "value": "5"
+            },
+            "datasource": {
+              "type": "",
+              "uid": ""
+            },
+            "definition": "SELECT SPLIT_PART('$top', ':', 2);",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "topright",
+            "options": [],
+            "query": "SELECT SPLIT_PART('$top', ':', 2);",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": "0",
+              "value": "0"
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "WITH clusterid as(\nSELECT\n  DISTINCT cluster_id\nFROM\n  status.managed_clusters\nWHERE\n leaf_hub_name IN ( $all_hubs )\nAND\n cluster_name = '$cluster'\n),\ncompcluster as(\n  SELECT DISTINCT (p.policy_name,p.payload -> 'metadata' ->> 'namespace')\n  FROM\n    history.local_compliance lc\n  JOIN\n    clusterid ci ON  ci.cluster_id = lc.cluster_id\n  JOIN\n    local_spec.policies p ON lc.policy_id = p.policy_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*) \nFROM \n  compcluster",
+            "description": "max value for top",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "maxtop",
+            "options": [],
+            "query": "WITH clusterid as(\nSELECT\n  DISTINCT cluster_id\nFROM\n  status.managed_clusters\nWHERE\n leaf_hub_name IN ( $all_hubs )\nAND\n cluster_name = '$cluster'\n),\ncompcluster as(\n  SELECT DISTINCT (p.policy_name,p.payload -> 'metadata' ->> 'namespace')\n  FROM\n    history.local_compliance lc\n  JOIN\n    clusterid ci ON  ci.cluster_id = lc.cluster_id\n  JOIN\n    local_spec.policies p ON lc.policy_id = p.policy_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*) \nFROM \n  compcluster",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": "-4",
+              "value": "-4"
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "select $maxtop-4",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "leftmaxtop",
+            "options": [],
+            "query": "select $maxtop-4",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "isNone": true,
+              "selected": false,
+              "text": "None",
+              "value": ""
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "SELECT\n  console_url\nFROM\n  status.leaf_hubs\nWHERE\n  leaf_hub_name = '$hub' AND deleted_at IS NULL",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "hubConsoleURL",
+            "options": [],
+            "query": "SELECT\n  console_url\nFROM\n  status.leaf_hubs\nWHERE\n  leaf_hub_name = '$hub' AND deleted_at IS NULL",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n  AND\n  lc.cluster_id IS NOT NULL\n)\nSELECT\n  p.payload -> 'metadata' ->> 'namespace'\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Namespace",
+            "multi": true,
+            "name": "namespace",
+            "options": [],
+            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n  AND\n  lc.cluster_id IS NOT NULL\n)\nSELECT\n  p.payload -> 'metadata' ->> 'namespace'\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.payload -> 'metadata' ->> 'namespace' in ($namespace)",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Policy",
+            "multi": true,
+            "name": "policy",
+            "options": [],
+            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.payload -> 'metadata' ->> 'namespace' in ($namespace)",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " is null ",
+              "value": " is null "
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "select case when length($$${policy}$$)>0 then $$ in ($policy) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "policy_query",
+            "options": [],
+            "query": "select case when length($$${policy}$$)>0 then $$ in ($policy) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " is null ",
+              "value": " is null "
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "select case when length($$${namespace}$$)>0 then $$ in ($namespace) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "namespace_query",
+            "options": [],
+            "query": "select case when length($$${namespace}$$)>0 then $$ in ($namespace) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-7d",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "utc",
+      "title": "Global Hub - What's Changed / Clusters",
+      "uid": "5a3a577af7894943aa6e7ca8408502fb",
+      "version": 1,
+      "weekStart": ""
+    }
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-acm-global-whats-changed-clusters
+  namespace: {{.Namespace}}

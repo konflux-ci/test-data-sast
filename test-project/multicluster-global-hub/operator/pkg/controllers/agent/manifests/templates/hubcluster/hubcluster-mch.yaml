@@ -1,0 +1,27 @@
+{{ if .InstallACMHub }}
+apiVersion: operator.open-cluster-management.io/v1
+kind: MultiClusterHub
+metadata:
+  name: multiclusterhub
+  namespace: open-cluster-management
+  labels:
+    addon.open-cluster-management.io/hosted-manifest-location: managed
+    global-hub.open-cluster-management.io/managed-by: global-hub
+  annotations:
+    "addon.open-cluster-management.io/deletion-orphan": ""
+spec:
+  disableHubSelfManagement: true
+  imagePullSecret: {{ .ImagePullSecretName }}
+  nodeSelector:
+  {{- range $key, $value := .NodeSelector}}
+  "{{$key}}": "{{$value}}"
+  {{- end}}
+  tolerations:
+    {{- range .Tolerations}}
+    - key: "{{.Key}}"
+      operator: "{{.Operator}}"
+      value: "{{.Value}}"
+      effect: "{{.Effect}}"
+      {{ if .TolerationSeconds }} tolerationSeconds: {{ .TolerationSeconds }} {{- end }}
+    {{- end}}
+{{ end }}

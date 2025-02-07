@@ -1,0 +1,21 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgo
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  template:
+    spec:
+      containers:
+      - name: operator
+        image: registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0
+        env:
+        - name: CRUNCHY_DEBUG
+          value: "true"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+      serviceAccountName: pgo
