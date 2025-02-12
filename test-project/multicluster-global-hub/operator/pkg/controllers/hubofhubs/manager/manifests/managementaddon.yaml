@@ -1,0 +1,18 @@
+{{ if .WithACM }}
+apiVersion: addon.open-cluster-management.io/v1alpha1
+kind: ClusterManagementAddOn
+metadata:
+  name: multicluster-global-hub-controller
+  labels:
+    name: multicluster-global-hub-manager
+  annotations:
+    skip-creation-if-exist: "true"
+spec:
+  addOnConfiguration:
+    crName: ""
+    crdName: ""
+  addOnMeta:
+    description: Multicluster Global Hub Controller manages multicluster-global-hub
+      components.
+    displayName: Multicluster Global Hub Controller
+{{ end }}

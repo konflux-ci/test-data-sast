@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: multicluster-global-hub-agent
+  labels:
+    addon.open-cluster-management.io/namespace: "true"
+    addon.open-cluster-management.io/hosted-manifest-location: managed

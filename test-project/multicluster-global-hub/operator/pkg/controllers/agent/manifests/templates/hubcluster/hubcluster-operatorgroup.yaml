@@ -1,0 +1,15 @@
+{{ if .InstallACMHub }}
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: open-cluster-management-group
+  namespace: open-cluster-management
+  labels:
+    addon.open-cluster-management.io/hosted-manifest-location: managed
+    global-hub.open-cluster-management.io/managed-by: global-hub
+  annotations:
+    "addon.open-cluster-management.io/deletion-orphan": ""
+spec:
+  targetNamespaces:
+  - open-cluster-management
+{{ end }}

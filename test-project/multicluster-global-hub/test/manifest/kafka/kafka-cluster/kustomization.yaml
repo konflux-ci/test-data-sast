@@ -1,0 +1,5 @@
+resources:
+- kafka-cluster.yaml
+- kafka-topics.yaml
+- kafka-user.yaml
+- kafka-byo-resource.yaml

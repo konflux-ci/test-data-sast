@@ -1,0 +1,171 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multicluster-global-hub-manager
+  namespace: {{.Namespace}}
+  labels:
+    name: multicluster-global-hub-manager
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    matchLabels:
+      name: multicluster-global-hub-manager
+  template:
+    metadata:
+      labels:
+        name: multicluster-global-hub-manager
+    spec:
+      serviceAccountName: multicluster-global-hub-manager
+      containers:
+        - name: multicluster-global-hub-manager
+          image: {{.Image}}
+          resources:
+          {{- if .Resources.Limits }}
+            limits:
+              {{- range $key, $value := .Resources.Limits }}
+              {{$key}}: {{.ToUnstructured}}
+              {{- end }}
+          {{- end }}
+          {{- if .Resources.Requests }}
+            requests:
+              {{- range $key, $value := .Resources.Requests }}
+              {{$key}}: {{.ToUnstructured}}
+              {{- end }}
+          {{- end }}
+          imagePullPolicy: {{.ImagePullPolicy}}
+          args:
+            - --zap-log-level={{.LogLevel}}
+            - --manager-namespace=$(POD_NAMESPACE)
+            - --watch-namespace=$(WATCH_NAMESPACE)
+            - --transport-type={{.TransportType}}
+            - --postgres-ca-path=/postgres-credential/ca.crt
+            - --process-database-url=$(DATABASE_URL)
+            - --transport-bridge-database-url=$(DATABASE_URL)
+            - --lease-duration={{.LeaseDuration}}
+            - --renew-deadline={{.RenewDeadline}}
+            - --retry-period={{.RetryPeriod}}
+            - --enable-global-resource={{.EnableGlobalResource}}
+            - --with-acm={{.WithACM}}
+            {{- if .SchedulerInterval}}
+            - --scheduler-interval={{.SchedulerInterval}}
+            {{- end}}
+            - --data-retention={{.RetentionMonth}}
+            - --statistics-log-interval={{.StatisticLogInterval}}
+            - --enable-pprof={{.EnablePprof}}
+            {{- if eq .SkipAuth true}}
+            - --cluster-api-url=
+            {{- end}}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credential-secret
+                  key: database-url
+            - name: WATCH_NAMESPACE
+            {{- if .LaunchJobNames}}
+            - name: LAUNCH_JOB_NAMES
+              value: {{.LaunchJobNames}}
+            {{- end}}
+          ports:
+          - containerPort: 9443
+            name: webhook-server
+            protocol: TCP
+          - containerPort: 8080
+            name: http-apiserver
+            protocol: TCP
+          - containerPort: 8384
+            name: metrics
+            protocol: TCP
+          volumeMounts:
+         {{- if .EnableGlobalResource}}
+          - mountPath: /webhook-certs
+            name: webhook-certs
+            readOnly: true
+          {{- end }}
+          - mountPath: /postgres-credential
+            name: postgres-credential
+            readOnly: true
+        {{- if .EnableGlobalResource}}
+        - name: oauth-proxy
+          image: {{.ProxyImage}}
+          imagePullPolicy: {{.ImagePullPolicy}}
+          args:
+            - --provider=openshift
+            - --https-address=:8443
+            - --http-address=
+            - --upstream=http://localhost:8080
+            - --skip-provider-button=true
+            # - '--client-id=/var/run/secrets/kubernetes.io/serviceaccount/namespace'
+            # - '--client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token'
+            - '--pass-user-bearer-token=true'
+            - '--pass-access-token=true'
+            - --openshift-sar={"resource":"projects","verb":"list"}
+            - --openshift-delegate-urls={"/":{"resource":"projects","verb":"list"}}
+            - --tls-cert=/etc/tls/private/tls.crt
+            - --tls-key=/etc/tls/private/tls.key
+            - --openshift-service-account=multicluster-global-hub-manager
+            - --cookie-secret-file=/etc/proxy/secrets/session_secret
+            - --openshift-ca=/etc/pki/tls/cert.pem
+            - --openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          ports:
+            - containerPort: 8443
+              name: oauth-proxy
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 1m
+              memory: 20Mi
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /oauth/healthz
+              port: 8443
+              scheme: HTTPS
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          volumeMounts:
+          - mountPath: /etc/tls/private
+            name: apiserver-certs
+            readOnly: true
+          - mountPath: /etc/proxy/secrets
+            name: cookie-secret
+        {{- end }}
+      {{- if .ImagePullSecret }}
+      imagePullSecrets:
+        - name: {{.ImagePullSecret}}
+      {{- end }}
+      nodeSelector:
+        {{- range $key, $value := .NodeSelector}}
+        "{{$key}}": "{{$value}}"
+        {{- end}}
+      tolerations:
+        {{- range .Tolerations}}
+        - key: "{{.Key}}"
+          operator: "{{.Operator}}"
+          value: "{{.Value}}"
+          effect: "{{.Effect}}"
+          {{- if .TolerationSeconds}}
+          tolerationSeconds: {{.TolerationSeconds}}
+          {{- end}}
+        {{- end}}
+      volumes:
+      - name: postgres-credential
+        secret:
+          secretName: postgres-credential-secret
+      {{- if .EnableGlobalResource }}
+      - name: apiserver-certs
+        secret:
+          secretName: multicluster-global-hub-manager-certs
+      - name: cookie-secret
+        secret:
+          secretName: nonk8s-apiserver-cookie-secret
+      - name: webhook-certs
+        secret:
+          secretName: multicluster-global-hub-manager-webhook-certs
+      {{- end }}

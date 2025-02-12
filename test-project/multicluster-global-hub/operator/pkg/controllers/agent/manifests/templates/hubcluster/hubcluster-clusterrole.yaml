@@ -1,0 +1,21 @@
+{{ if .InstallACMHub }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: multicluster-global-hub:hub-cluster-controller
+  labels:
+    addon.open-cluster-management.io/hosted-manifest-location: managed
+    global-hub.open-cluster-management.io/managed-by: global-hub
+  annotations:
+    "addon.open-cluster-management.io/deletion-orphan": ""
+rules:
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - operatorgroups
+  - subscriptions
+  - catalogsources
+  verbs:
+  - create
+  - update
+{{ end }}

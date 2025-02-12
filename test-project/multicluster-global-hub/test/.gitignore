@@ -1,0 +1,6 @@
+options*.yaml
+env.list
+kubeconfig
+report
+config
+

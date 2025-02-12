@@ -1,0 +1,463 @@
+apiVersion: v1
+data:
+  acm-global-cluster-group-compliancy-overview.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "datasource",
+              "uid": "grafana"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "target": {
+              "limit": 100,
+              "matchAny": false,
+              "tags": [],
+              "type": "dashboard"
+            },
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": 9,
+      "links": [
+        {
+          "asDropdown": false,
+          "icon": "dashboard",
+          "includeVars": true,
+          "keepTime": true,
+          "tags": [],
+          "targetBlank": true,
+          "title": "Global Hub - Offending Clusters",
+          "tooltip": "",
+          "type": "link",
+          "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1"
+        }
+      ],
+      "liveNow": false,
+      "panels": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${datasource}"
+          },
+          "description": "Aggregated cluster group trend by cluster label: \"$label\" (Data updated once a day)",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "links": [
+                {
+                  "targetBlank": true,
+                  "title": "View Offending Clusters by ${label}:${__field.name}",
+                  "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1&from=${__value.time}&to=${__value.time}&var-label=${label}&var-value=${__field.name}&${standard:queryparam}&${category:queryparam}&${control:queryparam}"
+                }
+              ],
+              "mappings": [],
+              "max": 1,
+              "noValue": "Initial data load occurs after 0:00Z",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percentunit",
+              "unitScale": true
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 34,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "datasource": {
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "format": "time_series",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data as (\n  SELECT\n    lc.compliance_date as \"time\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"metric\",\n    COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN lc.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance lc ON mc.cluster_id = lc.cluster_id\n  JOIN\n    local_spec.policies p ON lc.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(lc.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  GROUP BY (lc.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (lc.compliance_date)\n)\nSELECT\n  time,\n  metric,\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown + pending), 0) as \"value\"\nFROM\n  data",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Compliancy Trend (By $label)",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "",
+      "schemaVersion": 39,
+      "tags": [],
+      "templating": {
+        "list": [
+          {
+            "current": {
+              "selected": false,
+              "text": "Global-Hub-DataSource",
+              "value": "P244538DD76A4C61D"
+            },
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "postgres",
+            "queryValue": "",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": "vendor",
+              "value": "vendor"
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "${datasource}"
+            },
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters mc \nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id",
+            "description": "Managed cluster labels",
+            "hide": 0,
+            "includeAll": false,
+            "label": "Label",
+            "multi": false,
+            "name": "label",
+            "options": [],
+            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters mc \nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id",
+            "refresh": 2,
+            "regex": "\\b(?!name\\b)(\\b[a-z]+)",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "${datasource}"
+            },
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters mc\nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
+            "description": "Managed clusters label values",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Value",
+            "multi": true,
+            "name": "value",
+            "options": [],
+            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters mc\nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_standard\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\npolicy_standard IS NOT NULL;",
+            "description": "Managed cluster policy standards",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Standard",
+            "multi": true,
+            "name": "standard",
+            "options": [],
+            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_standard\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\npolicy_standard IS NOT NULL;",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": " WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_category\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard) \nAND\n  policy_category IS NOT NULL",
+            "description": "Managed cluster policy categories",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Category",
+            "multi": true,
+            "name": "category",
+            "options": [],
+            "query": " WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_category\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard) \nAND\n  policy_category IS NOT NULL",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": " WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_control\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IS NOT NULL",
+            "description": "Managed cluster labels policy controls",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Control",
+            "multi": true,
+            "name": "control",
+            "options": [],
+            "query": " WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_control\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IS NOT NULL",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " in ('OpenShift') ",
+              "value": " in ('OpenShift') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "select case when length($$${value}$$)>0 then $$ in ($value) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "value_query",
+            "options": [],
+            "query": "select case when length($$${value}$$)>0 then $$ in ($value) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " in ('NIST SP 800-53') ",
+              "value": " in ('NIST SP 800-53') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "select case when length($$${standard}$$)>0 then $$ in ($standard) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "standard_query",
+            "options": [],
+            "query": "select case when length($$${standard}$$)>0 then $$ in ($standard) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " in ('CM Configuration Management') ",
+              "value": " in ('CM Configuration Management') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "select case when length($$${category}$$)>0 then $$ in ($category) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "category_query",
+            "options": [],
+            "query": "select case when length($$${category}$$)>0 then $$ in ($category) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " in ('CM-2 Baseline Configuration','CM-2 Baseline Configuration, CM-6 Configuration Settings') ",
+              "value": " in ('CM-2 Baseline Configuration','CM-2 Baseline Configuration, CM-6 Configuration Settings') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "control_query",
+            "options": [],
+            "query": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-7d",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "utc",
+      "title": "Global Hub - Cluster Group Compliancy Overview",
+      "uid": "868845a4d1334958bd62303c5ccb4c19",
+      "version": 1,
+      "weekStart": ""
+    }
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-acm-global-cluster-group-compliancy-overview
+  namespace: {{.Namespace}}

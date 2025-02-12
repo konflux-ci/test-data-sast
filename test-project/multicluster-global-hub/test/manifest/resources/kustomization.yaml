@@ -1,0 +1,6 @@
+resources:
+- leader-election-configmap.yaml
+- manager-service-local.yaml
+- servicemonitors.crd.yaml
+- operatorgroups.crd.yaml
+- subscriptions.crd.yaml
