@@ -1,0 +1,28 @@
+Konflux SAST Test Data
+Copyright Red Hat and the collected contributors to Konflux
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The root LICENSE applies to Konflux-authored material in this repository
+(for example README, SECURITY.md, python-samples, and other first-party
+test snippets). It does not replace the licenses of third-party material
+included for SAST testing.
+
+---------------------------------------------------------------------------
+Third-party notices
+---------------------------------------------------------------------------
+
+GCC test corpus (GPLv3)
+-----------------------
+
+The gcc/ directory contains a GCC test corpus (including gcc/c-c++-common).
+That material is licensed under the GNU General Public License, Version 3
+(see gcc/LICENSE). It is not licensed under the Apache License 2.0 that
+applies to the rest of this repository.
+
+Multicluster Global Hub sample (Apache 2.0)
+-------------------------------------------
+
+test-project/multicluster-global-hub/ is third-party material from
+https://github.com/stolostron/multicluster-global-hub. It retains its own
+Apache License 2.0 text at test-project/multicluster-global-hub/LICENSE.
