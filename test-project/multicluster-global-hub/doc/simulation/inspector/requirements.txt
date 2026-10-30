@@ -6,3 +6,4 @@ tabulate
 numpy
 psycopg2-binary
 seaborn
+pillow>=13.0.0 # not directly required, pinned by Snyk to avoid a vulnerability
